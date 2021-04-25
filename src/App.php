@@ -5,20 +5,23 @@ namespace TaHUoP;
 use Exception;
 use InvalidArgumentException;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\SingleCommandApplication;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Output\OutputInterface;
+use TaHUoP\CodeGenerator\VmCodeGenerator;
+use TaHUoP\CodeGenerator\XmlCodeGenerator;
 
 class App extends SingleCommandApplication
 {
-    public function __construct(
-        private Parser $parser
-    ) {
+    public function __construct()
+    {
         parent::__construct();
         $this
             ->addArgument('inputPath', InputArgument::REQUIRED, 'Path to .jack file or directory with .jack files')
             ->addArgument('outputFilePath', InputArgument::OPTIONAL, 'Path to destination file or directory (.xml or .vm)')
             ->addArgument('memoryLimit', InputArgument::OPTIONAL, 'PHP memory limit. Unlimited by default')
+            ->addOption('debug', 'd', InputOption::VALUE_NONE, 'Debug mode will produce parse tree in xml format')
             ->setCode([$this, 'main']);
     }
 
@@ -61,9 +64,9 @@ class App extends SingleCommandApplication
 
     private function writeFile(string $inputPath, InputInterface $input, OutputInterface $output): void
     {
-        $outputFileContent = $this->parser->parseFile($inputPath);
+        $outputFileContent = $this->getParser($input)->parseFile($inputPath);
 
-        $outputFilePath = $input->getArgument('outputFilePath') ?? $this->getOutputFilePath($inputPath);
+        $outputFilePath = $input->getArgument('outputFilePath') ?? $this->getOutputFilePath($inputPath, $input->getOption('debug'));
         if (file_put_contents($outputFilePath, $outputFileContent) !== false) {
             $output->writeln("File $outputFilePath was successfully built.");
         } else {
@@ -71,10 +74,17 @@ class App extends SingleCommandApplication
         }
     }
 
-    private function getOutputFilePath(string $inputPath): string
+    private function getOutputFilePath(string $inputPath, $debug = false): string
     {
         $pathInfo = pathinfo($inputPath);
+        $fileExtension = $debug ? 'xml' : 'vm';
 
-        return $pathInfo['dirname'] . DIRECTORY_SEPARATOR . "{$pathInfo['filename']}.xml";
+        return $pathInfo['dirname'] . DIRECTORY_SEPARATOR . "{$pathInfo['filename']}.{$fileExtension}";
+    }
+
+    private function getParser(InputInterface $input): Parser
+    {
+        $codeGenerator = $input->getOption('debug') ? new XmlCodeGenerator() : new VmCodeGenerator();
+        return new Parser($codeGenerator);
     }
 }

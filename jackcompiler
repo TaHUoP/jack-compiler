@@ -5,5 +5,4 @@ require __DIR__.'/vendor/autoload.php';
 use TaHUoP\App;
 use TaHUoP\Parser;
 
-(new App(new Parser()))
-    ->run();
+(new App())->run();

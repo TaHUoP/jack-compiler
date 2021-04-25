@@ -5,15 +5,19 @@ namespace TaHUoP;
 
 
 use Exception;
+use TaHUoP\CodeGenerator\CodeGeneratorInterface;
 use TaHUoP\Enums\Lexemes\AbstractLexemeEnum;
 use TaHUoP\Enums\Lexemes\Keyword;
 use TaHUoP\Enums\Lexemes\LexemeType;
 use TaHUoP\Enums\Lexemes\Symbol;
 use TaHUoP\Exceptions\SyntaxErrorException;
 
-//TODO: separate content generation to individual class
 class Parser
 {
+    public function __construct(
+        private CodeGeneratorInterface $codeGenerator
+    ) { }
+
     private Tokenizer $tokenizer;
 
     /**
@@ -34,11 +38,11 @@ class Parser
 
     private function compileClass(): string
     {
-        $content = '<class>';
+        $this->assert($this->tokenizer->getNextToken(), Keyword::CLASS_());
+        $this->assert($className = $this->tokenizer->getNextToken(), LexemeType::IDENTIFIER());
+        $this->assert($this->tokenizer->getNextToken(), Symbol::LCB());
 
-        $content .= $this->assertAndGetContent($this->tokenizer->getNextToken(), Keyword::CLASS_());
-        $content .= $this->assertAndGetContent($this->tokenizer->getNextToken(), LexemeType::IDENTIFIER());
-        $content .= $this->assertAndGetContent($this->tokenizer->getNextToken(), Symbol::LCB());
+        $content = $this->codeGenerator->getClassStart($className->getValue());
 
         $nextToken = $this->tokenizer->getNextToken();
         while ($nextToken->getType() === LexemeType::CLASS_VAR_DECLARATION_TYPE()) {
@@ -46,53 +50,55 @@ class Parser
             $nextToken = $this->tokenizer->getNextToken();
         }
 
-        $content .= $this->assertAndGetContent($nextToken, Symbol::RCB());
+        $this->assert($nextToken, Symbol::RCB());
 
-        $content .= '</class>';
+        $content .= $this->codeGenerator->getClassEnd($className->getValue());
 
         return $content;
     }
 
-    private function compileClassVarDeclaration(Token $firstToken): string
+    private function compileClassVarDeclaration(Token $declarationType): string
     {
-        $content = '<classVarDec>';
-
-        $content .= $this->assertAndGetContent($firstToken, LexemeType::CLASS_VAR_DECLARATION_TYPE());
+        $this->assert($declarationType, LexemeType::CLASS_VAR_DECLARATION_TYPE());
 
         try {
-            $nextToken = $this->tokenizer->getNextToken();
-            $content .= $this->assertAndGetContent($nextToken, LexemeType::SCALAR_TYPE());
+            $type = $this->tokenizer->getNextToken();
+            $this->assert($type, LexemeType::SCALAR_TYPE());
         } catch (SyntaxErrorException) {
-            $content .= $this->assertAndGetContent($nextToken, LexemeType::IDENTIFIER());
+            $this->assert($type, LexemeType::IDENTIFIER());
         }
 
-        $content .= $this->assertAndGetContent($this->tokenizer->getNextToken(), LexemeType::IDENTIFIER());
+        $varNames = [];
+
+        $varName = $this->tokenizer->getNextToken();
+        $this->assert($varName, LexemeType::IDENTIFIER());
+        $varNames[]= $varName->getValue();
 
         $nextToken = $this->tokenizer->getNextToken();
         while ($nextToken->getValue() === Symbol::COMMA) {
-            $content .= $this->assertAndGetContent($nextToken, Symbol::COMMA());
-            $content .= $this->assertAndGetContent($this->tokenizer->getNextToken(), LexemeType::IDENTIFIER());
+            $this->assert($nextToken, Symbol::COMMA());
+            $varName = $this->tokenizer->getNextToken();
+            $this->assert($varName, LexemeType::IDENTIFIER());
+            $varNames[]= $varName->getValue();
             $nextToken = $this->tokenizer->getNextToken();
         }
 
-        $content .= $this->assertAndGetContent($nextToken, Symbol::SEMICOLON());
+        $this->assert($nextToken, Symbol::SEMICOLON());
 
-        $content .= '</classVarDec>';
-
-        return $content;
+        return $this->codeGenerator->getClassVarDeclaration($declarationType->getValue(), $type->getValue(), $varNames);
     }
 
-    private function assertAndGetContent(?Token $token, LexemeType|AbstractLexemeEnum $lexeme): string
+    private function assert(?Token $token, LexemeType|AbstractLexemeEnum $lexeme): void
     {
-        if (
-            (($lexeme instanceof LexemeType) && $token->getType() !== $lexeme)
-            || (($lexeme instanceof AbstractLexemeEnum) && $token->getValue() !== $lexeme->getValue())
-            || is_null($token)
-        ) {
-            //TODO: add info to exception
-            throw new SyntaxErrorException();
+        $errorMessage = null;
+        if (($lexeme instanceof LexemeType) && $token->getType() !== $lexeme) {
+            $errorMessage = "Expected {$lexeme->getValue()} lexeme type, got {$token->getType()->getValue()}. Token: {$token->getValue()}";
         }
-
-        return "<{$token->getType()->getValue()}>{$token->getValue()}</{$token->getType()->getValue()}>";
+        if (($lexeme instanceof AbstractLexemeEnum) && $token->getValue() !== $lexeme->getValue()) {
+            $errorMessage = "Expected {$lexeme->getValue()} lexeme, got {$token->getValue()}. Token type: {$token->getValue()}";
+        }
+        if ($errorMessage) {
+            throw new SyntaxErrorException($errorMessage);
+        }
     }
 }
