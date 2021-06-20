@@ -8,6 +8,7 @@ use TaHUoP\Enums\Lexemes\ClassVarDeclarationType;
 use TaHUoP\Enums\Lexemes\Keyword;
 use TaHUoP\Enums\Lexemes\LexemeType;
 use TaHUoP\Enums\Lexemes\ScalarType;
+use TaHUoP\Enums\Lexemes\SubroutineDeclarationType;
 use TaHUoP\Exceptions\LexicalErrorException;
 
 /**
@@ -52,8 +53,13 @@ class Tokenizer
             ],
         ];
 
-        /** @var AbstractLexemeEnum $keyword */
-        $keywords = [...Keyword::instances(), ...ClassVarDeclarationType::instances(), ...ScalarType::instances()];
+        /** @var AbstractLexemeEnum[] $keywords */
+        $keywords = [
+            ...Keyword::instances(),
+            ...ClassVarDeclarationType::instances(),
+            ...SubroutineDeclarationType::instances(),
+            ...ScalarType::instances()
+        ];
         foreach ($keywords as $keyword) {
             foreach (str_split($keyword->getValue()) as $index => $char) {
                 if ($index === 0) {
@@ -73,6 +79,9 @@ class Tokenizer
         }
     }
 
+    /**
+     * @throws LexicalErrorException
+     */
     public function getNextToken(): ?Token
     {
         $state = ''; //empty string is start state

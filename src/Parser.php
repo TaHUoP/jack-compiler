@@ -10,6 +10,7 @@ use TaHUoP\Enums\Lexemes\AbstractLexemeEnum;
 use TaHUoP\Enums\Lexemes\Keyword;
 use TaHUoP\Enums\Lexemes\LexemeType;
 use TaHUoP\Enums\Lexemes\Symbol;
+use TaHUoP\Exceptions\LexicalErrorException;
 use TaHUoP\Exceptions\SyntaxErrorException;
 
 class Parser
@@ -50,6 +51,11 @@ class Parser
             $nextToken = $this->tokenizer->getNextToken();
         }
 
+        while ($nextToken->getType() === LexemeType::SUBROUTINE_DECLARATION_TYPE()) {
+            $content .= $this->compileSubroutineDeclaration($nextToken);
+            $nextToken = $this->tokenizer->getNextToken();
+        }
+
         $this->assert($nextToken, Symbol::RCB());
 
         $content .= $this->codeGenerator->getClassEnd($className->getValue());
@@ -61,31 +67,59 @@ class Parser
     {
         $this->assert($declarationType, LexemeType::CLASS_VAR_DECLARATION_TYPE());
 
-        try {
-            $type = $this->tokenizer->getNextToken();
-            $this->assert($type, LexemeType::SCALAR_TYPE());
-        } catch (SyntaxErrorException) {
-            $this->assert($type, LexemeType::IDENTIFIER());
-        }
+        $type = $this->tokenizer->getNextToken();
+        $this->assertType($type);
 
         $varNames = [];
 
-        $varName = $this->tokenizer->getNextToken();
-        $this->assert($varName, LexemeType::IDENTIFIER());
-        $varNames[]= $varName->getValue();
-
-        $nextToken = $this->tokenizer->getNextToken();
-        while ($nextToken->getValue() === Symbol::COMMA) {
-            $this->assert($nextToken, Symbol::COMMA());
-            $varName = $this->tokenizer->getNextToken();
+        $fn = function (?Token $varName) use (&$varNames): ?Token {
             $this->assert($varName, LexemeType::IDENTIFIER());
             $varNames[]= $varName->getValue();
-            $nextToken = $this->tokenizer->getNextToken();
+            return $this->tokenizer->getNextToken();
+        };
+
+        $nextToken = $fn($this->tokenizer->getNextToken());
+
+        while ($nextToken->getValue() === Symbol::COMMA) {
+            $nextToken = $fn($this->tokenizer->getNextToken());
         }
 
         $this->assert($nextToken, Symbol::SEMICOLON());
 
         return $this->codeGenerator->getClassVarDeclaration($declarationType->getValue(), $type->getValue(), $varNames);
+    }
+
+    /**
+     * @throws LexicalErrorException
+     * @throws SyntaxErrorException
+     */
+    private function compileSubroutineDeclaration(Token $declarationType): string
+    {
+        $content = '';
+
+        $this->assert($declarationType, LexemeType::SUBROUTINE_DECLARATION_TYPE());
+
+        $returnType = $this->tokenizer->getNextToken();
+        try {
+            $this->assert($returnType, Keyword::VOID());
+        } catch (SyntaxErrorException) {
+            $this->assertType($returnType);
+        }
+
+        $subroutineName = $this->tokenizer->getNextToken();
+
+        $this->assert($this->tokenizer->getNextToken(), Symbol::LB());
+        $nextToken = $this->tokenizer->getNextToken();
+        try {
+            $this->assertType($nextToken);
+            $content .= $this->compileParameterList($nextToken);
+        } catch (SyntaxErrorException) {}
+
+        $this->assert($this->tokenizer->getNextToken(), Symbol::RB());
+
+        $content .= $this->compileSubroutineBody();
+
+        return $content;
     }
 
     private function assert(?Token $token, LexemeType|AbstractLexemeEnum $lexeme): void
@@ -100,5 +134,23 @@ class Parser
         if ($errorMessage) {
             throw new SyntaxErrorException($errorMessage);
         }
+    }
+
+    /**
+     * @param Token|null $type
+     * @throws SyntaxErrorException
+     */
+    private function assertType(?Token $type): void
+    {
+        try {
+            $this->assert($type, LexemeType::SCALAR_TYPE());
+        } catch (SyntaxErrorException) {
+            $this->assert($type, LexemeType::IDENTIFIER());
+        }
+    }
+
+    private function compileParameterList(?Token $nextToken): string
+    {
+        return '';
     }
 }

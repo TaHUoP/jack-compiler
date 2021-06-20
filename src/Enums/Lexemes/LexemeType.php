@@ -12,6 +12,7 @@ use TaHUoP\Enums\AbstractEnum;
  * @method static LexemeType STRING_CONSTANT()
  * @method static LexemeType IDENTIFIER()
  * @method static LexemeType CLASS_VAR_DECLARATION_TYPE()
+ * @method static LexemeType SUBROUTINE_DECLARATION_TYPE()
  * @method static LexemeType SCALAR_TYPE()
  */
 class LexemeType extends AbstractEnum
@@ -22,5 +23,6 @@ class LexemeType extends AbstractEnum
     public const STRING_CONSTANT = 'stringConstant';
     public const IDENTIFIER = 'identifier';
     public const CLASS_VAR_DECLARATION_TYPE = 'classVarDeclarationType';
+    public const SUBROUTINE_DECLARATION_TYPE = 'subroutineVarDeclarationType';
     public const SCALAR_TYPE = 'scalarType';
 }

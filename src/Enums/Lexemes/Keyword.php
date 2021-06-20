@@ -5,9 +5,6 @@ namespace TaHUoP\Enums\Lexemes;
 
 /**
  * @method static Keyword CLASS_()
- * @method static Keyword CONSTRUCTOR()
- * @method static Keyword FUNCTION()
- * @method static Keyword METHOD()
  * @method static Keyword VAR()
  * @method static Keyword VOID()
  * @method static Keyword TRUE()
@@ -24,9 +21,6 @@ namespace TaHUoP\Enums\Lexemes;
 class Keyword extends AbstractLexemeEnum
 {
     public const CLASS_ = 'class';
-    public const CONSTRUCTOR = 'constructor';
-    public const FUNCTION = 'function';
-    public const METHOD = 'method';
     public const VAR = 'var';
     public const VOID = 'void';
     public const TRUE = 'true';
